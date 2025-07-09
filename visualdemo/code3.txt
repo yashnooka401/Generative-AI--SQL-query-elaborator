@@ -1,0 +1,297 @@
+USE CompanyDB; 
+
+GO 
+
+ 
+
+-- Dropping the stored procedure if it already exists 
+
+IF OBJECT_ID('dbo.ExtensiveBusinessOperation', 'P') IS NOT NULL 
+
+    DROP PROCEDURE dbo.ExtensiveBusinessOperation; 
+
+GO 
+
+ 
+
+-- Creating the stored procedure 
+
+CREATE PROCEDURE dbo.ExtensiveBusinessOperation 
+
+    @EmployeeID INT, 
+
+    @NewSalary DECIMAL(10, 2), 
+
+    @EffectiveDate DATETIME, 
+
+    @OperationType NVARCHAR(50), 
+
+    @DepartmentID INT = NULL  -- Optional parameter for department-based operations 
+
+AS 
+
+BEGIN 
+
+    SET NOCOUNT ON; 
+
+ 
+
+    DECLARE @LogID INT; 
+
+    DECLARE @ErrorMessage NVARCHAR(4000); 
+
+    DECLARE @ErrorSeverity INT; 
+
+    DECLARE @ErrorState INT; 
+
+ 
+
+    BEGIN TRY 
+
+        -- Start the transaction 
+
+        BEGIN TRANSACTION; 
+
+        
+
+        -- Preliminary checks for employee existence 
+
+        IF NOT EXISTS (SELECT 1 FROM Employees WHERE EmployeeID = @EmployeeID) 
+
+        BEGIN 
+
+            SET @ErrorMessage = 'No employee found with the specified ID.'; 
+
+            RAISERROR (@ErrorMessage, 16, 1); 
+
+        END 
+
+ 
+
+        -- Dynamic SQL for different operation types 
+
+        DECLARE @SQL NVARCHAR(MAX) = N''; 
+
+        DECLARE @AuditMessage NVARCHAR(MAX) = N'Initial audit record; '; 
+
+        DECLARE @Condition NVARCHAR(MAX) = N''; 
+
+ 
+
+        SET @SQL = N'UPDATE Employees SET '; 
+
+        
+
+        -- Expanded CASE logic for various operations 
+
+        SET @SQL += CASE 
+
+            WHEN @OperationType = 'SalaryUpdate' THEN 
+
+                CONCAT( 
+
+                    'Salary = ', CAST(@NewSalary AS NVARCHAR(20)), 
+
+                    ', LastSalaryUpdate = GETDATE() ', 
+
+                    'WHERE EmployeeID = ', CAST(@EmployeeID AS NVARCHAR(10)) 
+
+                ) 
+
+            WHEN @OperationType = 'Promote' THEN 
+
+                CONCAT( 
+
+                    'PositionID = PositionID + 1, ', 
+
+                    'Salary = Salary * 1.10, ', 
+
+                    'LastPositionUpdate = GETDATE(), ', 
+
+                    'LastSalaryUpdate = GETDATE() ', 
+
+                    'WHERE EmployeeID = ', CAST(@EmployeeID AS NVARCHAR(10)) 
+
+                ) 
+
+            WHEN @OperationType = 'DepartmentTransfer' THEN 
+
+                IF @DepartmentID IS NULL 
+
+                    RAISERROR('Department ID must be provided for department transfer operations.', 16, 1) 
+
+                ELSE 
+
+                    CONCAT( 
+
+                        'DepartmentID = ', CAST(@DepartmentID AS NVARCHAR(10)), 
+
+                        ', LastDepartmentUpdate = GETDATE() ', 
+
+                        'WHERE EmployeeID = ', CAST(@EmployeeID AS NVARCHAR(10)) 
+
+                    ) 
+
+            ELSE 
+
+                RAISERROR('Invalid operation type specified.', 16, 1) 
+
+        END; 
+
+ 
+
+        -- Additional CASE statements for extended logic 
+
+        SET @AuditMessage += CASE 
+
+            WHEN @OperationType = 'SalaryUpdate' AND @NewSalary >= 100000 THEN 
+
+                'High salary update; ' 
+
+            WHEN @OperationType = 'Promote' AND EXISTS (SELECT 1 FROM DepartmentHeads WHERE EmployeeID = @EmployeeID) THEN 
+
+                'Promotion within department heads; ' 
+
+            WHEN @OperationType = 'DepartmentTransfer' AND @DepartmentID IS NOT NULL THEN 
+
+                CONCAT('Transfer to department ', CAST(@DepartmentID AS NVARCHAR(10)), '; ') 
+
+            ELSE 
+
+                'General update; ' 
+
+        END; 
+
+ 
+
+        -- Condition for effective date handling 
+
+        IF @EffectiveDate IS NOT NULL 
+
+        BEGIN 
+
+            SET @Condition = N' AND EffectiveDate <= ''' + CONVERT(NVARCHAR, @EffectiveDate, 120) + ''''; 
+
+            SET @SQL += @Condition; 
+
+            SET @AuditMessage += N' Effective from ' + CONVERT(NVARCHAR, @EffectiveDate, 120) + ';'; 
+
+        END 
+
+ 
+
+        -- Execute the dynamic SQL 
+
+        EXEC sp_executesql @SQL; 
+
+ 
+
+        -- Insert operation log 
+
+        INSERT INTO OperationLogs (EmployeeID, OperationType, Details, OperationDate) 
+
+        VALUES (@EmployeeID, @OperationType, @SQL + ' ' + @AuditMessage, GETDATE()); 
+
+ 
+
+        -- Retrieve the newly inserted log ID for further reference 
+
+        SET @LogID = SCOPE_IDENTITY(); 
+
+ 
+
+        -- Extensive simulated operations and logging 
+
+        DECLARE @i INT = 0; 
+
+        WHILE @i < 450  -- Loop to inflate the code size with complex conditional logging 
+
+        BEGIN 
+
+            SET @i = @i + 1; 
+
+            INSERT INTO DummyLogTable (LogID, LogText) 
+
+            VALUES (@LogID, 'Log detail #' + CAST(@i AS NVARCHAR(10)) + '; Extended operation details: ' + @AuditMessage); 
+
+            
+
+            -- Simulate additional conditions within the loop for complexity 
+
+            IF @i % 10 = 0 
+
+            BEGIN 
+
+                UPDATE DummyLogTable 
+
+                SET LogText = REPLACE(LogText, 'detail', 'Detail checked at iteration ' + CAST(@i AS NVARCHAR(10))) 
+
+                WHERE LogID = @LogID AND LogText LIKE '%detail%'; 
+
+            END 
+
+        END 
+
+ 
+
+        -- Additional complex nested operations for demonstration purposes 
+
+        IF @OperationType IN ('Promote', 'DepartmentTransfer') 
+
+        BEGIN 
+
+            DECLARE @j INT; 
+
+            SET @j = 0; 
+
+            WHILE @j < 100  -- Additional loop for more complex computation simulation 
+
+            BEGIN 
+
+                SET @j = @j + 1; 
+
+                UPDATE DummyLogTable 
+
+                SET LogText = LogText + ' | Additional complex operation log #' + CAST(@j AS NVARCHAR(10)) 
+
+                WHERE LogID = @LogID AND LogText LIKE '%Extended operation details%'; 
+
+            END 
+
+        END 
+
+ 
+
+        -- Commit the transaction 
+
+        COMMIT TRANSACTION; 
+
+    END TRY 
+
+    BEGIN CATCH 
+
+        -- Rollback transaction if there is an error 
+
+        IF @@TRANCOUNT > 0 
+
+            ROLLBACK TRANSACTION; 
+
+ 
+
+        -- Capturing error information 
+
+        SET @ErrorMessage = ERROR_MESSAGE(); 
+
+        SET @ErrorSeverity = ERROR_SEVERITY(); 
+
+        SET @ErrorState = ERROR_STATE(); 
+
+ 
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState); 
+
+    END CATCH; 
+
+END; 
+
+GO 

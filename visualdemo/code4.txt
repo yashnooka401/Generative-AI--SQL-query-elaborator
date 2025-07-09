@@ -1,0 +1,54 @@
+import streamlit as st
+import pandas as pd
+from PIL import Image
+img= Image.open("mix.png")
+st.image(img,width=300)
+st.title("SQL QUERY ELABORATOR")
+text=st.text_area("Enter the Query here :")
+sub=st.button("Submit")
+if sub and text.startswith("calculate_patient_risk",17,46) :
+    files = open('q2k.txt',"r")
+    if files:
+        for line in files:
+            st.write(line)
+        st.subheader("Flow chart")
+        img1 = Image.open("22fc.png")
+        st.image(img1, width=300)
+        st.subheader("ER diagram")
+        img2 = Image.open("22er.png")
+        st.image(img2, width=300)
+elif sub and text.startswith("calculate_and_report_commissions",17,49):
+    file1=open('q1k.txt',"r")
+    if file1:
+        for line in file1:
+            st.write(line)
+        st.subheader("Flow chart")
+        img3 = Image.open("11fc.png")
+        st.image(img3, width=300)
+        st.subheader("ER diagram")
+        img4 = Image.open("11er.png")
+        st.image(img4, width=300)
+elif sub and text.startswith("CompanyDB",4,13):
+    file2=open('q3k.txt',"r")
+    if file2:
+        for line in file2:
+            st.write(line)
+        st.subheader("Flow chart")
+        img5 = Image.open("33fc.png")
+        st.image(img5, width=300)
+        st.subheader("ER diagram")
+        img6 = Image.open("33er.png")
+        st.image(img6, width=300)
+
+
+
+
+
+
+
+
+
+
+
+
+

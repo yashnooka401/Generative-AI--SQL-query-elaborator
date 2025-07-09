@@ -1,0 +1,187 @@
+CREATE PROCEDURE calculate_and_report_commissions 
+
+AS 
+
+BEGIN 
+
+   -- **1. Setup** 
+
+   DECLARE @current_month INT; 
+
+   DECLARE @current_year INT; 
+
+   DECLARE @region_record TABLE (region_name VARCHAR(50), ...); 
+
+   DECLARE @category_record TABLE (product_category VARCHAR(50), total_sales DECIMAL(10,2), ...); 
+
+   DECLARE @salesperson_record TABLE (salesperson_id INT, name VARCHAR(100), region VARCHAR(50), ...); 
+
+   DECLARE @target_record TABLE (month INT, region VARCHAR(50), category VARCHAR(50), target_amount DECIMAL(10,2), ... ); 
+
+   DECLARE @commission_record TABLE (product_category VARCHAR(50), base_rate DECIMAL(5,2), bonus_tier2 DECIMAL(10,2), bonus_tier3 DECIMAL(10,2), ...); 
+
+ 
+
+   SELECT @current_month = MONTH(GETDATE()), @current_year = YEAR(GETDATE()); 
+
+ 
+
+   -- **2. Core Calculation Loop** 
+
+   INSERT INTO @region_record SELECT * FROM SalesRegions; 
+
+ 
+
+   WHILE EXISTS(SELECT 1 FROM @region_record) 
+
+   BEGIN 
+
+      SELECT TOP 1 @region_name = region_name FROM @region_record; 
+
+ 
+
+      INSERT INTO @salesperson_record 
+
+          SELECT * FROM Salespersons 
+
+          WHERE region = @region_name; 
+
+ 
+
+      WHILE EXISTS(SELECT 1 FROM @salesperson_record) 
+
+      BEGIN 
+
+          SELECT TOP 1 @salesperson_id = salesperson_id, @name = name, @region = region FROM @salesperson_record; 
+
+ 
+
+          -- 2a. Aggregate sales for salesperson 
+
+          DELETE FROM @category_record; 
+
+ 
+
+          INSERT INTO @category_record 
+
+              SELECT product_category, SUM(quantity * price) as total_sales 
+
+              FROM SalesTransactions 
+
+              JOIN Products ON SalesTransactions.product_id = Products.product_id 
+
+              WHERE salesperson_id = @salesperson_id 
+
+                AND MONTH(date) = @current_month 
+
+                AND YEAR(date) = @current_year 
+
+              GROUP BY product_category; 
+
+ 
+
+          -- 2b. Calculate commission 
+
+          WHILE EXISTS(SELECT 1 FROM @category_record) 
+
+          BEGIN 
+
+              SELECT TOP 1 * FROM @category_record INTO @category_record; 
+
+ 
+
+              SELECT * FROM SalesTargets 
+
+              WHERE month = @current_month 
+
+                AND region = @region 
+
+                AND category = @category_record.product_category 
+
+              INTO @target_record; 
+
+ 
+
+              SELECT * FROM CommissionStructure 
+
+              WHERE product_category = @category_record.product_category 
+
+              INTO @commission_record; 
+
+ 
+
+              DECLARE @calculated_commission DECIMAL(10,2); 
+
+ 
+
+              -- ... (Tiered calculation logic, same as before) 
+
+ 
+
+              INSERT INTO temp_commissions (salesperson_id, region, product_category, commission_amount) 
+
+              VALUES (@salesperson_id, @region, @category_record.product_category, @calculated_commission); 
+
+ 
+
+              DELETE FROM @category_record WHERE product_category = @category_record.product_category; 
+
+          END; -- End category loop 
+
+ 
+
+          DELETE FROM @salesperson_record WHERE salesperson_id = @salesperson_id; 
+
+      END; -- End salesperson loop 
+
+ 
+
+      DELETE FROM @region_record WHERE region_name = @region_name; 
+
+   END; -- End region loop 
+
+ 
+
+   -- **3. Reporting** 
+
+   CREATE TABLE #temp_commission_report ( 
+
+       salesperson_name VARCHAR(100), 
+
+       region VARCHAR(50), 
+
+       product_category VARCHAR(50), 
+
+       total_commission DECIMAL(10,2) 
+
+    ); 
+
+ 
+
+   INSERT INTO #temp_commission_report 
+
+       SELECT 
+
+          salespersons.name, 
+
+          salespersons.region, 
+
+          product_category, 
+
+          SUM(commission_amount) AS total_commission 
+
+       FROM temp_commissions 
+
+       JOIN salespersons ON temp_commissions.salesperson_id = salespersons.salesperson_id 
+
+       GROUP BY salespersons.name, salespersons.region, product_category; 
+
+ 
+
+   -- Replace with a suitable reporting mechanism 
+
+   -- Example: Insert into a permanent reporting table, or query directly 
+
+ 
+
+END; 

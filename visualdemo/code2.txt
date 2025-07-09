@@ -1,0 +1,150 @@
+CREATE PROCEDURE calculate_patient_risk  
+
+AS  
+
+BEGIN  
+
+DECLARE @patient_record TABLE (patient_id INT, name VARCHAR(100), age INT) DECLARE @diagnosis_record TABLE (patient_id INT, diagnosis_code VARCHAR(20), date DATE)  
+
+DECLARE @lab_record TABLE (patient_id INT, test_type VARCHAR(50), date DATE, result_value DECIMAL(10,2))  
+
+DECLARE @risk_factor_record TABLE (diagnosis_code VARCHAR(20), test_type VARCHAR(50), value_range_low DECIMAL(10,2), value_range_high DECIMAL(10,2), risk_score_contribution DECIMAL(5,2))  
+
+DECLARE @intervention_record TABLE (intervention_id INT, risk_category VARCHAR(10), intervention_type VARCHAR(50), description VARCHAR(255))  
+
+DECLARE @total_risk_score DECIMAL(5,2);  
+
+-- 1. Iterate through patients  
+
+INSERT INTO @patient_record SELECT * FROM Patients;  
+
+WHILE EXISTS(SELECT 1 FROM @patient_record)  
+
+BEGIN  
+
+SELECT TOP 1 @patient_id = patient_id FROM @patient_record; 
+
+SET @total_risk_score = 0;  
+
+ -- 2. Calculate risk based on medical history  
+
+INSERT INTO @diagnosis_record  
+
+SELECT * FROM MedicalHistory  
+
+WHERE patient_id = @patient_id;  
+
+WHILE EXISTS(SELECT 1 FROM @diagnosis_record)  
+
+BEGIN  
+
+SELECT TOP 1 * FROM @diagnosis_record INTO @diagnosis_record;  
+
+SELECT * FROM RiskFactors  
+
+WHERE diagnosis_code = @diagnosis_record.diagnosis_code  
+
+INTO @risk_factor_record;  
+
+SET @total_risk_score = @total_risk_score + @risk_factor_record.risk_score_contribution; DELETE FROM @diagnosis_record WHERE diagnosis_code =@diagnosis_record.diagnosis_code;  
+
+ END;  
+-- 3. Calculate risk based on lab results  
+INSERT INTO @lab_record  
+
+SELECT * FROM LabResults  
+
+WHERE patient_id = @patient_id;  
+
+WHILE EXISTS(SELECT 1 FROM @lab_record) 
+
+BEGIN  
+
+SELECT TOP 1 * FROM @lab_record INTO @lab_record;  
+
+SELECT * FROM RiskFactors  
+
+WHERE test_type = @lab_record.test_type  
+
+ AND @lab_record.result_value BETWEEN value_range_low AND value_range_high  
+
+INTO @risk_factor_record;  
+
+SET @total_risk_score = @total_risk_score + @risk_factor_record.risk_score_contribution; DELETE FROM @lab_record WHERE test_type = @lab_record.test_type AND date = @lab_record.date;  
+
+END;  
+
+-- 4. Determine risk category and interventions  
+
+ IF @total_risk_score >= 20  
+
+ SELECT TOP 1 * FROM Interventions WHERE risk_category = 'High' INTO @intervention_record;  
+
+ELSIF @total_risk_score >= 10  
+
+SELECT TOP 1 * FROM Interventions WHERE risk_category = 'Medium' INTO @intervention_record;  
+
+ELSE  
+
+SELECT TOP 1 * FROM Interventions WHERE risk_category = 'Low' INTO @intervention_record;  
+
+END IF;  
+
+ -- 5. Store or report results  
+
+INSERT INTO patient_risk_assessment (patient_id, risk_score, intervention_id)  
+
+VALUES (@patient_id, @total_risk_score, @intervention_record.intervention_id); 
+DELETE FROM @patient_record WHERE patient_id = @patient_id;  
+END;  
+END; 
+
+
+
+
+
+
+import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc=new Scanner(System.in);
+        String a=sc.nextLine();
+        a=a.replaceAll("\\s","");
+        System.out.println(a);
+        String[] t=a.split("(?<=\\d)(?=[*/])|(?<=[*/])(?=\\d)|(?<=\\d)(?=[+-])|(?<=[+-])(?=\\d)");
+        for(int i=0;i<t.length;i+=1)
+        {
+            System.out.print(t[i] +"  ");
+        }
+        for(int i=1;i<=t.length;i+=1)
+        {
+            char op =t[i].charAt(0);
+            double num1=Double.parseDouble(t[i-1]);
+            System.out.println(num1);
+            double num2=Double.parseDouble(t[i+1]);
+            System.out.println(num2);
+            double result =0;
+            if(op=='+')
+            {
+                result=num1+num2;
+            }
+            else if(op=='-')
+            {
+                result=num1-num2;
+            }
+            else if(op=='*')
+            {
+                result=num1*num2;
+            }
+            else if(op=='/')
+            {
+                if(num2==0) {
+                    System.out.println("Error ! division by error");
+                }
+                result=num1/num2;
+            }
+            System.out.println(result) ;
+        }
+    }
+}
+ 
